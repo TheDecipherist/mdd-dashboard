@@ -1,5 +1,6 @@
 import http from 'node:http'
 import fs from 'node:fs/promises'
+import { spawn } from 'node:child_process'
 import type { Cache, SseDelta } from './cache.js'
 import { getTemplate } from './template.js'
 
@@ -96,6 +97,18 @@ export function createServer(
         commits: gitEntry.commits,
         hasUncommittedChanges: gitEntry.hasUncommittedChanges,
       })
+      return
+    }
+
+    if (url.startsWith('/api/open')) {
+      const fileParam = new URL(url, 'http://localhost').searchParams.get('file')
+      if (!fileParam) {
+        sendJson(res, 400, { error: 'file param required' })
+        return
+      }
+      spawn('code', [fileParam], { detached: true, stdio: 'ignore' }).unref()
+      res.writeHead(204)
+      res.end()
       return
     }
 

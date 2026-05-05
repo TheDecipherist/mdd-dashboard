@@ -6,6 +6,8 @@ export function getTemplate(): string {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MDD Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden;font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3}
@@ -37,11 +39,7 @@ button.active{background:#388bfd33;border-color:#388bfd}
 /* Canvas */
 #canvas-wrap{flex:1;position:relative;overflow:hidden}
 svg#graph{width:100%;height:100%;cursor:default}
-/* Detail panel */
-#detail{position:absolute;top:0;right:0;width:340px;height:100%;background:#161b22;border-left:1px solid #30363d;transform:translateX(100%);transition:transform .3s ease;overflow-y:auto;z-index:10}
-#detail.open{transform:translateX(0)}
-#detail-inner{padding:16px}
-.detail-title{font-size:16px;font-weight:600;margin-bottom:6px}
+/* Shared badges */
 .badge{border-radius:12px;font-size:11px;padding:2px 8px;display:inline-block;margin-right:4px}
 .badge-type{background:#21262d;color:#8b949e}
 .badge-status-complete{background:#22c55e22;color:#22c55e}
@@ -52,31 +50,60 @@ svg#graph{width:100%;height:100%;cursor:default}
 .badge-status-deprecated{background:#37415122;color:#6b7280}
 .badge-status-cancelled{background:#ef444422;color:#ef4444}
 .badge-modified{background:#f59e0b22;color:#f59e0b}
-.detail-meta{color:#8b949e;font-size:12px;margin:6px 0 12px}
-.detail-section{margin-bottom:12px}
-.detail-section h4{color:#8b949e;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
 .dep-chip{background:#21262d;border:1px solid #30363d;border-radius:12px;color:#8b949e;cursor:pointer;display:inline-block;font-size:12px;margin:2px;padding:2px 8px}
 .dep-chip:hover{border-color:#388bfd;color:#e6edf3}
-.issues-list{color:#ef4444;font-size:12px;padding-left:16px}
-.source-list{color:#8b949e;font-family:monospace;font-size:11px}
-.source-list li{margin:2px 0}
 .git-info{color:#8b949e;font-size:12px}
 .git-hash{background:#21262d;border-radius:4px;font-family:monospace;font-size:11px;padding:1px 4px}
 #view-history-btn{background:none;border:1px solid #30363d;border-radius:6px;color:#8b949e;cursor:pointer;font-size:11px;margin-top:6px;padding:3px 8px}
 #view-history-btn:hover{color:#e6edf3}
-#commit-list{max-height:200px;overflow-y:auto;margin-top:6px}
-.commit-item{border-bottom:1px solid #21262d;font-size:11px;padding:4px 0}
+#commit-list{max-height:240px;overflow-y:auto;margin-top:6px}
+.commit-item{border-bottom:1px solid #21262d;font-size:11px;padding:5px 0}
 .commit-item .cm-msg{color:#e6edf3}
 .commit-item .cm-meta{color:#8b949e;margin-top:2px}
-.body-content{border-top:1px solid #30363d;font-size:13px;line-height:1.6;margin-top:12px;padding-top:12px}
-.body-content h1,.body-content h2,.body-content h3{color:#e6edf3;margin:12px 0 6px}
-.body-content code{background:#21262d;border-radius:4px;font-size:12px;padding:1px 4px}
-.body-content pre{background:#21262d;border-radius:6px;font-size:12px;overflow-x:auto;padding:10px}
-.body-content a{color:#388bfd}
-.body-content table{border-collapse:collapse;width:100%}
-.body-content td,.body-content th{border:1px solid #30363d;font-size:12px;padding:4px 8px}
-.skeleton{animation:pulse 1.5s ease-in-out infinite;background:#21262d;border-radius:4px;height:12px;margin:4px 0}
+.skeleton{animation:pulse 1.5s ease-in-out infinite;background:#21262d;border-radius:4px;height:12px;margin:6px 0}
 @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+/* ── Viewer overlay ──────────────────────────────────────────────────────────── */
+#viewer-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(3px);z-index:50;display:none}
+#viewer-backdrop.open{display:block}
+#viewer{position:fixed;inset:30px;background:#0d1117;border:1px solid #30363d;border-radius:10px;z-index:51;display:none;flex-direction:column;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.8)}
+#viewer.open{display:flex}
+#viewer-header{background:#161b22;border-bottom:1px solid #30363d;padding:14px 20px;flex-shrink:0;display:flex;align-items:flex-start;gap:0}
+#viewer-header-text{flex:1;min-width:0}
+#viewer-title{font-size:19px;font-weight:700;color:#e6edf3;display:block;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#viewer-badges{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+#viewer-meta{color:#8b949e;font-size:12px}
+#viewer-close{background:none;border:1px solid #30363d;border-radius:6px;color:#8b949e;cursor:pointer;flex-shrink:0;font-size:16px;height:32px;line-height:1;margin-left:16px;padding:0 10px;transition:all .15s}
+#viewer-close:hover{background:#30363d;color:#e6edf3}
+#viewer-main{display:flex;flex:1;overflow:hidden}
+#viewer-sidebar{background:#161b22;border-right:1px solid #30363d;flex-shrink:0;overflow-y:auto;padding:14px 16px;width:260px}
+#viewer-body{flex:1;font-size:14px;line-height:1.75;overflow-y:auto;padding:24px 32px}
+.viewer-section{margin-bottom:18px}
+.viewer-section h4{color:#8b949e;font-size:11px;font-weight:600;letter-spacing:.06em;margin-bottom:8px;text-transform:uppercase}
+.src-file-btn{background:none;border:1px solid #30363d;border-radius:6px;color:#8b949e;cursor:pointer;display:block;font-family:monospace;font-size:11px;margin:3px 0;padding:5px 8px;text-align:left;transition:all .15s;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.src-file-btn:hover{background:#161b22;border-color:#388bfd;color:#388bfd}
+.copy-btn{position:absolute;top:8px;right:8px;background:#21262d;border:1px solid #30363d;border-radius:5px;color:#8b949e;cursor:pointer;font-size:11px;padding:3px 8px;transition:all .15s;opacity:0;z-index:1}
+#viewer-body pre:hover .copy-btn{opacity:1}
+.copy-btn:hover{background:#30363d;color:#e6edf3}
+#viewer-body h1,#viewer-body h2,#viewer-body h3,#viewer-body h4{color:#e6edf3;font-weight:600;margin:22px 0 9px}
+#viewer-body h1{font-size:22px;border-bottom:1px solid #30363d;padding-bottom:9px}
+#viewer-body h2{font-size:18px;border-bottom:1px solid #21262d;padding-bottom:6px}
+#viewer-body h3{font-size:15px}
+#viewer-body p{color:#c9d1d9;margin:9px 0}
+#viewer-body a{color:#388bfd;text-decoration:none}
+#viewer-body a:hover{text-decoration:underline}
+#viewer-body code{background:#161b22;border:1px solid #30363d;border-radius:4px;font-size:12px;padding:2px 5px;color:#f97583}
+#viewer-body pre{background:#161b22;border:1px solid #30363d;border-radius:8px;overflow-x:auto;padding:16px;position:relative;margin:14px 0}
+#viewer-body pre code{background:none;border:none;padding:0;color:inherit;font-size:13px}
+#viewer-body ul,#viewer-body ol{color:#c9d1d9;padding-left:22px;margin:9px 0}
+#viewer-body li{margin:3px 0}
+#viewer-body blockquote{border-left:3px solid #30363d;color:#8b949e;margin:10px 0;padding:4px 14px}
+#viewer-body table{border-collapse:collapse;margin:14px 0;width:100%}
+#viewer-body th{background:#161b22;color:#e6edf3;font-size:13px;font-weight:600;text-align:left}
+#viewer-body td,#viewer-body th{border:1px solid #30363d;padding:7px 12px}
+#viewer-body tr:nth-child(even) td{background:#0d1117}
+#viewer-body hr{border:none;border-top:1px solid #30363d;margin:22px 0}
+.viewer-no-body{color:#8b949e;font-size:13px;font-style:italic;padding:20px 0}
+.hljs{background:transparent !important}
 /* Mini-map */
 #minimap{position:absolute;bottom:12px;right:12px;background:rgba(13,17,23,.85);border:1px solid #30363d;border-radius:6px;display:none}
 /* Live indicator */
@@ -166,7 +193,21 @@ svg#graph{width:100%;height:100%;cursor:default}
   <div id="canvas-wrap">
     <svg id="graph"><defs></defs><g id="edges-g"></g><g id="nodes-g"></g></svg>
     <svg id="minimap" width="160" height="120"></svg>
-    <div id="detail"><div id="detail-inner"></div></div>
+  </div>
+</div>
+<div id="viewer-backdrop"></div>
+<div id="viewer">
+  <div id="viewer-header">
+    <div id="viewer-header-text">
+      <span id="viewer-title"></span>
+      <div id="viewer-badges"></div>
+      <div id="viewer-meta"></div>
+    </div>
+    <button id="viewer-close">✕</button>
+  </div>
+  <div id="viewer-main">
+    <div id="viewer-sidebar"><div id="viewer-sidebar-inner"></div></div>
+    <div id="viewer-body"></div>
   </div>
 </div>
 <script>
@@ -340,14 +381,14 @@ function selectNode(n){
   d3.select(gNodes).selectAll('g.node').select('circle:first-of-type')
     .attr('stroke',d=>d.id===n.id?'#fff':'none').attr('stroke-width',d=>d.id===n.id?2:0);
   applyEdgeSelection(n);
-  openDetail(n);
+  openViewer(n);
 }
 
 function deselect(){
   selectedId=null;
   d3.select(gNodes).selectAll('g.node').select('circle:first-of-type').attr('stroke','none');
   d3.select(gEdges).selectAll('path.edge').style('opacity',null).style('animation',null);
-  document.getElementById('detail').classList.remove('open');
+  closeViewer();
 }
 
 function hoverNode(n,on){
@@ -447,41 +488,90 @@ function updateFilterBar(){
   bar.appendChild(clr);
 }
 
-// ─── Detail panel ─────────────────────────────────────────────────────────────
-function openDetail(n){
-  const panel=document.getElementById('detail');
-  const inner=document.getElementById('detail-inner');
-  panel.classList.add('open');
+// ─── Viewer ───────────────────────────────────────────────────────────────────
+function openViewer(n){
+  document.getElementById('viewer-title').textContent=n.title;
 
   const statusBadge='<span class="badge badge-status-'+n.status+'">'+n.status+'</span>';
   const modBadge=n.git&&n.git.hasUncommittedChanges?'<span class="badge badge-modified">modified</span>':'';
-  const gitSection=n.git?'<div class="git-info"><div><span class="git-hash">'+n.git.lastCommitHash.slice(0,7)+'</span> '+n.git.relativeDate+' — "'+n.git.lastCommitMessage+'" by '+n.git.lastCommitAuthor+'</div><div style="color:#8b949e;font-size:11px;margin-top:3px">'+n.git.commitCount+' commits</div><button id="view-history-btn" data-nid="'+n.id+'" onclick="loadHistory(this.dataset.nid)">View history</button><div id="commit-list"></div></div>':'';
+  document.getElementById('viewer-badges').innerHTML='<span class="badge badge-type">'+n.type+'</span>'+statusBadge+modBadge;
+  document.getElementById('viewer-meta').textContent=(n.last_synced||'—')+' · v'+(n.mdd_version||'?')+' · '+(n.edition||'—');
 
-  inner.innerHTML=
-    '<div class="detail-title">'+n.title+'</div>'+
-    '<div><span class="badge badge-type">'+n.type+'</span>'+statusBadge+modBadge+'</div>'+
-    '<div class="detail-meta">'+n.last_synced+' · v'+n.mdd_version+' · '+n.edition+'</div>'+
-    (n.known_issues_count>0?'<div class="detail-section"><h4>Known Issues</h4><div style="color:#ef4444;font-size:12px">'+n.known_issues_count+' issue(s)</div></div>':'')+
-    (n.depends_on.length>0?'<div class="detail-section"><h4>Depends On</h4>'+n.depends_on.map(d=>'<span class="dep-chip" data-nid="'+d+'" onclick="jumpTo(this.dataset.nid)">'+d+'</span>').join('')+'</div>':'')+
-    (n.source_files.length>0?'<div class="detail-section"><h4>Source Files</h4><ul class="source-list">'+n.source_files.map(f=>'<li>'+f+'</li>').join('')+'</ul></div>':'')+
-    (gitSection?'<div class="detail-section"><h4>Git</h4>'+gitSection+'</div>':'')+
-    '<div id="body-wrap" class="body-content"><div class="skeleton" style="height:10px;width:80%"></div><div class="skeleton" style="height:10px;width:60%"></div></div>';
+  const gitSection=n.git?
+    '<div class="viewer-section"><h4>Git</h4><div class="git-info">'+
+    '<div><span class="git-hash">'+n.git.lastCommitHash.slice(0,7)+'</span> '+n.git.relativeDate+
+    ' — &ldquo;'+n.git.lastCommitMessage+'&rdquo; by '+n.git.lastCommitAuthor+'</div>'+
+    '<div style="color:#8b949e;font-size:11px;margin-top:3px">'+n.git.commitCount+' commits</div>'+
+    '<button id="view-history-btn" data-nid="'+n.id+'" onclick="loadHistory(this.dataset.nid)">View history</button>'+
+    '<div id="commit-list"></div></div></div>':'';
 
-  loadBody(n.id);
+  document.getElementById('viewer-sidebar-inner').innerHTML=
+    (n.known_issues_count>0?'<div class="viewer-section"><h4>Known Issues</h4><div style="color:#ef4444;font-size:12px">'+n.known_issues_count+' issue(s)</div></div>':'')+
+    (n.depends_on.length>0?'<div class="viewer-section"><h4>Depends On</h4>'+n.depends_on.map(d=>'<span class="dep-chip" data-nid="'+d+'" onclick="jumpTo(this.dataset.nid)">'+d+'</span>').join('')+'</div>':'')+
+    (n.source_files.length>0?'<div class="viewer-section"><h4>Source Files</h4>'+n.source_files.map(f=>'<button class="src-file-btn" data-file="'+f+'" onclick="openFile(this.dataset.file)" title="Open in VS Code">'+f+'</button>').join('')+'</div>':'')+
+    gitSection;
+
+  const body=document.getElementById('viewer-body');
+  body.innerHTML=
+    '<div class="skeleton" style="height:14px;width:70%;margin-bottom:10px"></div>'+
+    '<div class="skeleton" style="height:14px;width:85%;margin-bottom:10px"></div>'+
+    '<div class="skeleton" style="height:14px;width:55%"></div>';
+
+  document.getElementById('viewer-backdrop').classList.add('open');
+  document.getElementById('viewer').classList.add('open');
+  document.body.style.overflow='hidden';
+
+  loadViewerBody(n.id);
 }
 
-async function loadBody(id){
-  if(clientBodyCache.has(id)){document.getElementById('body-wrap').innerHTML=clientBodyCache.get(id);return;}
-  const r=await fetch('/api/doc/'+id);
-  if(!r.ok){document.getElementById('body-wrap').innerHTML='';return;}
+function closeViewer(){
+  document.getElementById('viewer').classList.remove('open');
+  document.getElementById('viewer-backdrop').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+async function loadViewerBody(id){
+  const wrap=document.getElementById('viewer-body');
+  if(!wrap)return;
+  if(clientBodyCache.has(id)){
+    wrap.innerHTML=clientBodyCache.get(id);
+    highlightAndDecorate(wrap);
+    return;
+  }
+  const r=await fetch('/api/doc/'+encodeURIComponent(id));
+  if(!r.ok){wrap.innerHTML='<p class="viewer-no-body">No document body.</p>';return;}
   const {html}=await r.json();
-  clientBodyCache.set(id,html);
-  const wrap=document.getElementById('body-wrap');
-  if(wrap)wrap.innerHTML=html;
+  const content=html.trim()||'<p class="viewer-no-body">No document body.</p>';
+  clientBodyCache.set(id,content);
+  if(wrap)wrap.innerHTML=content;
+  highlightAndDecorate(wrap);
 }
+
+function highlightAndDecorate(wrap){
+  if(typeof hljs!=='undefined'){
+    wrap.querySelectorAll('pre code').forEach(el=>hljs.highlightElement(el));
+  }
+  wrap.querySelectorAll('pre').forEach(pre=>{
+    if(!pre.querySelector('code'))return;
+    const code=pre.querySelector('code');
+    const btn=document.createElement('button');
+    btn.className='copy-btn'; btn.textContent='Copy';
+    btn.addEventListener('click',()=>{
+      navigator.clipboard.writeText(code.innerText).then(()=>{
+        btn.textContent='Copied!';
+        setTimeout(()=>{btn.textContent='Copy';},1500);
+      }).catch(()=>{});
+    });
+    pre.appendChild(btn);
+  });
+}
+
+window.openFile=function(path){
+  fetch('/api/open?file='+encodeURIComponent(path)).catch(()=>{});
+};
 
 window.loadHistory=async function(id){
-  const r=await fetch('/api/git/'+id);
+  const r=await fetch('/api/git/'+encodeURIComponent(id));
   if(!r.ok)return;
   const {commits}=await r.json();
   const el=document.getElementById('commit-list');
@@ -490,6 +580,7 @@ window.loadHistory=async function(id){
 };
 
 window.jumpTo=function(id){
+  closeViewer();
   const n=nodeById(id);
   if(n)selectNode(n);
 };
@@ -575,7 +666,10 @@ document.getElementById('pause-btn').addEventListener('click',()=>{
   localStorage.setItem('mdd-paused',paused);
 });
 
-document.addEventListener('keydown',e=>{if(e.key==='p'||e.key==='P')document.getElementById('pause-btn').click();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')closeViewer();
+  if(e.key==='p'||e.key==='P')document.getElementById('pause-btn').click();
+});
 
 document.getElementById('layout-btn').addEventListener('click',()=>{
   layoutMode=layoutMode==='force'?'tree':'force';
@@ -609,6 +703,9 @@ document.getElementById('clear-adv-link').addEventListener('click',e=>{e.prevent
 });
 
 document.getElementById('f-uncommitted')&&document.getElementById('f-uncommitted').addEventListener('change',e=>{filters.uncommitted=e.target.checked;applyFilters();});
+
+document.getElementById('viewer-close').addEventListener('click',closeViewer);
+document.getElementById('viewer-backdrop').addEventListener('click',closeViewer);
 
 boot();
 })();

@@ -11,11 +11,18 @@ vi.mock('marked', () => ({
   marked: vi.fn().mockReturnValue('<p>rendered html</p>'),
 }))
 
+vi.mock('node:child_process', () => ({
+  default: { spawn: vi.fn().mockReturnValue({ unref: vi.fn() }) },
+  spawn: vi.fn().mockReturnValue({ unref: vi.fn() }),
+}))
+
 import fs from 'node:fs/promises'
+import { spawn } from 'node:child_process'
 import { Cache } from '../src/cache.js'
 import { createServer } from '../src/server.js'
 
 const mockReadFile = vi.mocked(fs.readFile)
+const mockSpawn = vi.mocked(spawn)
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -365,5 +372,42 @@ describe('server — GET /', () => {
     const { body } = await get(server, '/')
     expect(body.length).toBeGreaterThan(0)
     expect(body).toContain('<script')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// GET /api/open
+// ---------------------------------------------------------------------------
+
+describe('server — GET /api/open', () => {
+  let server: http.Server
+
+  beforeEach(async () => {
+    server = await startServer(makeCache())
+    mockSpawn.mockClear()
+  })
+
+  afterEach(async () => {
+    await stopServer(server)
+  })
+
+  it('should return 204 and call spawn("code", [file]) for a valid file path', async () => {
+    const { status } = await get(server, '/api/open?file=%2Fsome%2Ffile.ts')
+    expect(status).toBe(204)
+    expect(mockSpawn).toHaveBeenCalledWith('code', ['/some/file.ts'], expect.objectContaining({ detached: true }))
+  })
+
+  it('should return 400 { error: "file param required" } when file param is absent', async () => {
+    const { status, body } = await get(server, '/api/open')
+    const parsed = JSON.parse(body) as { error: string }
+    expect(status).toBe(400)
+    expect(parsed.error).toBe('file param required')
+  })
+
+  it('should return 400 { error: "file param required" } when file param is empty string', async () => {
+    const { status, body } = await get(server, '/api/open?file=')
+    const parsed = JSON.parse(body) as { error: string }
+    expect(status).toBe(400)
+    expect(parsed.error).toBe('file param required')
   })
 })
