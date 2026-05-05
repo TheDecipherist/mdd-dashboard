@@ -1,5 +1,7 @@
 # mdd-dashboard
 
+![mdd-dashboard hero](docs/mdd-dashboard.webp)
+
 > Interactive visual browser dashboard for [MDD](https://github.com/) projects — explore your feature graph, track status, and live-reload on file change.
 
 ![Node >=20](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)
