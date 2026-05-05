@@ -593,7 +593,7 @@ document.getElementById('clear-adv-link').addEventListener('click',e=>{e.prevent
 ['f-edition','f-initiative','f-wave','f-wave-status','f-issues','f-deps','f-git-author'].forEach(id=>{
   const el=document.getElementById(id);
   if(el)el.addEventListener('change',e=>{
-    const k={f-edition:'edition','f-initiative':'initiative','f-wave':'wave','f-wave-status':'waveStatus','f-issues':'hasIssues','f-deps':'hasDeps','f-git-author':'gitAuthor'}[id];
+    const k={'f-edition':'edition','f-initiative':'initiative','f-wave':'wave','f-wave-status':'waveStatus','f-issues':'hasIssues','f-deps':'hasDeps','f-git-author':'gitAuthor'}[id];
     if(k)filters[k]=e.target.value;
     applyFilters();
   });
