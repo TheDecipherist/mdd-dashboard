@@ -54,7 +54,12 @@ function isPortFree(port: number): Promise<boolean> {
 async function findFreePort(start: number): Promise<number | null> {
   const end = start === 7321 ? 7340 : start
   for (let port = start; port <= end; port++) {
-    if (await isPortFree(port)) return port
+    // Retry the preferred port briefly — handles tsx watch restart race where
+    // the previous process hasn't fully released the socket yet.
+    for (let attempt = 0; attempt < (port === start ? 6 : 1); attempt++) {
+      if (await isPortFree(port)) return port
+      if (attempt < 5) await new Promise(r => setTimeout(r, 300))
+    }
   }
   return null
 }
