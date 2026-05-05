@@ -67,11 +67,17 @@ svg#graph{width:100%;height:100%;cursor:default}
 #viewer-backdrop.open{display:block}
 #viewer{position:fixed;inset:30px;background:#0d1117;border:1px solid #30363d;border-radius:10px;z-index:51;display:none;flex-direction:column;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.8)}
 #viewer.open{display:flex}
-#viewer-header{background:#161b22;border-bottom:1px solid #30363d;padding:14px 20px;flex-shrink:0;display:flex;align-items:flex-start;gap:0}
-#viewer-header-text{flex:1;min-width:0}
-#viewer-title{font-size:19px;font-weight:700;color:#e6edf3;display:block;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#viewer-badges{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:6px}
-#viewer-meta{color:#8b949e;font-size:12px}
+#viewer-header{background:#161b22;border-bottom:1px solid #30363d;padding:12px 20px;flex-shrink:0;display:flex;align-items:flex-start;gap:0}
+#viewer-header-content{flex:1;min-width:0}
+#viewer-title-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap}
+#viewer-id-label{color:#8b949e;font-size:11px;font-family:monospace;background:#21262d;border-radius:4px;padding:1px 6px;flex-shrink:0}
+#viewer-title{font-size:18px;font-weight:700;color:#e6edf3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#viewer-badges{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+#viewer-meta-bar{display:flex;align-items:center;flex-wrap:wrap;gap:0;font-size:12px;color:#8b949e}
+.meta-sep{color:#30363d;padding:0 5px}
+.sync-synced{color:#22c55e}
+.sync-modified{color:#f59e0b}
+.badge-phase{background:#8b5cf622;color:#8b5cf6}
 #viewer-close{background:none;border:1px solid #30363d;border-radius:6px;color:#8b949e;cursor:pointer;flex-shrink:0;font-size:16px;height:32px;line-height:1;margin-left:16px;padding:0 10px;transition:all .15s}
 #viewer-close:hover{background:#30363d;color:#e6edf3}
 #viewer-main{display:flex;flex:1;overflow:hidden}
@@ -198,10 +204,13 @@ svg#graph{width:100%;height:100%;cursor:default}
 <div id="viewer-backdrop"></div>
 <div id="viewer">
   <div id="viewer-header">
-    <div id="viewer-header-text">
-      <span id="viewer-title"></span>
-      <div id="viewer-badges"></div>
-      <div id="viewer-meta"></div>
+    <div id="viewer-header-content">
+      <div id="viewer-title-row">
+        <span id="viewer-id-label"></span>
+        <span id="viewer-title"></span>
+        <div id="viewer-badges"></div>
+      </div>
+      <div id="viewer-meta-bar"></div>
     </div>
     <button id="viewer-close">✕</button>
   </div>
@@ -490,12 +499,36 @@ function updateFilterBar(){
 
 // ─── Viewer ───────────────────────────────────────────────────────────────────
 function openViewer(n){
+  document.getElementById('viewer-id-label').textContent=n.id;
   document.getElementById('viewer-title').textContent=n.title;
 
-  const statusBadge='<span class="badge badge-status-'+n.status+'">'+n.status+'</span>';
-  const modBadge=n.git&&n.git.hasUncommittedChanges?'<span class="badge badge-modified">modified</span>':'';
-  document.getElementById('viewer-badges').innerHTML='<span class="badge badge-type">'+n.type+'</span>'+statusBadge+modBadge;
-  document.getElementById('viewer-meta').textContent=(n.last_synced||'—')+' · v'+(n.mdd_version||'?')+' · '+(n.edition||'—');
+  const phaseBadge=n.phase?'<span class="badge badge-phase">'+n.phase+'</span>':'';
+  const modBadge=n.git&&n.git.hasUncommittedChanges?'<span class="badge badge-modified">⚠ modified</span>':'';
+  document.getElementById('viewer-badges').innerHTML=
+    '<span class="badge badge-type">'+n.type+'</span>'+
+    '<span class="badge badge-status-'+n.status+'">'+n.status+'</span>'+
+    phaseBadge+modBadge;
+
+  const syncHtml=n.git
+    ?(n.git.hasUncommittedChanges
+      ?'<span class="sync-modified">⚠ modified</span>'
+      :'<span class="sync-synced">✓ in sync</span>')
+    :'';
+  const issueHtml=n.known_issues_count>0
+    ?'<span style="color:#ef4444">⚠ '+n.known_issues_count+' issue'+(n.known_issues_count!==1?'s':'')+'</span>'
+    :'<span>no issues</span>';
+  document.getElementById('viewer-meta-bar').innerHTML=
+    (n.edition?'<span>'+n.edition+'</span><span class="meta-sep">·</span>':'')+
+    '<span>'+(n.last_synced||'—')+'</span>'+
+    '<span class="meta-sep">·</span>'+
+    '<span>v'+(n.mdd_version||'?')+'</span>'+
+    (syncHtml?'<span class="meta-sep">·</span>'+syncHtml:'')+
+    '<span class="meta-sep"> | </span>'+
+    '<span>'+n.source_files.length+' source'+(n.source_files.length===1?'':'s')+'</span>'+
+    '<span class="meta-sep">·</span>'+
+    '<span>'+n.routes.length+' route'+(n.routes.length===1?'':'s')+'</span>'+
+    '<span class="meta-sep">·</span>'+
+    issueHtml;
 
   const gitSection=n.git?
     '<div class="viewer-section"><h4>Git</h4><div class="git-info">'+

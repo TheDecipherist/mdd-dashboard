@@ -47,6 +47,7 @@ export interface NodeData {
   source_files: string[]
   routes: string[]
   edition: string
+  phase: string
   git: GitData | null
 }
 

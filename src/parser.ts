@@ -64,6 +64,7 @@ export function parseFrontmatter(
     source_files: [],
     routes: [],
     edition: '',
+    phase: '',
     git: null,
   }
 
@@ -117,6 +118,7 @@ export function parseFrontmatter(
     source_files: toStringArray(fm['source_files']),
     routes: toStringArray(fm['routes']),
     edition: typeof fm['edition'] === 'string' ? fm['edition'] : defaults.edition,
+    phase: typeof fm['phase'] === 'string' ? fm['phase'] : defaults.phase,
     git: null,
   }
 

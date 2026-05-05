@@ -1,6 +1,7 @@
 import http from 'node:http'
 import fs from 'node:fs/promises'
 import { spawn } from 'node:child_process'
+import matter from 'gray-matter'
 import type { Cache, SseDelta } from './cache.js'
 import { getTemplate } from './template.js'
 
@@ -71,7 +72,8 @@ export function createServer(
         return
       }
 
-      const content = await fs.readFile(filepath, 'utf-8')
+      const raw = await fs.readFile(filepath, 'utf-8')
+      const { content } = matter(raw)
       const markedFn = await loadMarked()
       const html = String(await Promise.resolve(markedFn(content)))
       cache.body.set(id, { mtime: fmMtime, html })
