@@ -455,14 +455,14 @@ function openDetail(n){
 
   const statusBadge='<span class="badge badge-status-'+n.status+'">'+n.status+'</span>';
   const modBadge=n.git&&n.git.hasUncommittedChanges?'<span class="badge badge-modified">modified</span>':'';
-  const gitSection=n.git?'<div class="git-info"><div><span class="git-hash">'+n.git.lastCommitHash.slice(0,7)+'</span> '+n.git.relativeDate+' — "'+n.git.lastCommitMessage+'" by '+n.git.lastCommitAuthor+'</div><div style="color:#8b949e;font-size:11px;margin-top:3px">'+n.git.commitCount+' commits</div><button id="view-history-btn" onclick="loadHistory(\''+n.id+'\')">View history</button><div id="commit-list"></div></div>':'';
+  const gitSection=n.git?'<div class="git-info"><div><span class="git-hash">'+n.git.lastCommitHash.slice(0,7)+'</span> '+n.git.relativeDate+' — "'+n.git.lastCommitMessage+'" by '+n.git.lastCommitAuthor+'</div><div style="color:#8b949e;font-size:11px;margin-top:3px">'+n.git.commitCount+' commits</div><button id="view-history-btn" data-nid="'+n.id+'" onclick="loadHistory(this.dataset.nid)">View history</button><div id="commit-list"></div></div>':'';
 
   inner.innerHTML=
     '<div class="detail-title">'+n.title+'</div>'+
     '<div><span class="badge badge-type">'+n.type+'</span>'+statusBadge+modBadge+'</div>'+
     '<div class="detail-meta">'+n.last_synced+' · v'+n.mdd_version+' · '+n.edition+'</div>'+
     (n.known_issues_count>0?'<div class="detail-section"><h4>Known Issues</h4><div style="color:#ef4444;font-size:12px">'+n.known_issues_count+' issue(s)</div></div>':'')+
-    (n.depends_on.length>0?'<div class="detail-section"><h4>Depends On</h4>'+n.depends_on.map(d=>'<span class="dep-chip" onclick="jumpTo(\''+d+'\')">'+d+'</span>').join('')+'</div>':'')+
+    (n.depends_on.length>0?'<div class="detail-section"><h4>Depends On</h4>'+n.depends_on.map(d=>'<span class="dep-chip" data-nid="'+d+'" onclick="jumpTo(this.dataset.nid)">'+d+'</span>').join('')+'</div>':'')+
     (n.source_files.length>0?'<div class="detail-section"><h4>Source Files</h4><ul class="source-list">'+n.source_files.map(f=>'<li>'+f+'</li>').join('')+'</ul></div>':'')+
     (gitSection?'<div class="detail-section"><h4>Git</h4>'+gitSection+'</div>':'')+
     '<div id="body-wrap" class="body-content"><div class="skeleton" style="height:10px;width:80%"></div><div class="skeleton" style="height:10px;width:60%"></div></div>';
