@@ -4,7 +4,7 @@
   "description": "Interactive visual browser dashboard for MDD projects",
   "type": "module",
   "bin": {
-    "mdd-dashboard": "./bin/mdd-dashboard.js"
+    "mdd-dashboard": "bin/mdd-dashboard.js"
   },
   "files": [
     "bin/",
