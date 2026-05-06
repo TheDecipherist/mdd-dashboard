@@ -48,6 +48,7 @@ export interface NodeData {
   routes: string[]
   edition: string
   phase: string
+  icon: string
   git: GitData | null
 }
 

@@ -79,6 +79,7 @@ function makeCache(id = 'test-doc', filepath = '/mdd/docs/test-doc.md'): Cache {
             routes: [],
             edition: '',
             phase: '',
+            icon: '',
             folder: 'docs' as const,
             filepath: 'docs/test-doc.md',
             git: null,

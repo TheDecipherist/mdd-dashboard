@@ -65,6 +65,7 @@ export function parseFrontmatter(
     routes: [],
     edition: '',
     phase: '',
+    icon: '',
     git: null,
   }
 
@@ -119,6 +120,7 @@ export function parseFrontmatter(
     routes: toStringArray(fm['routes']),
     edition: typeof fm['edition'] === 'string' ? fm['edition'] : defaults.edition,
     phase: typeof fm['phase'] === 'string' ? fm['phase'] : defaults.phase,
+    icon: typeof fm['icon'] === 'string' ? fm['icon'] : defaults.icon,
     git: null,
   }
 

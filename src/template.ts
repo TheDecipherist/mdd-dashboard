@@ -157,7 +157,7 @@ svg#graph{width:100%;height:100%;cursor:default}
       <option value="cancelled">Cancelled</option>
     </select>
     <button id="adv-btn">Advanced Filters <span id="adv-badge"></span></button>
-    <button id="layout-btn">Force ↔ Tree</button>
+    <button id="layout-btn">Layout: Force</button>
     <button id="pause-btn">⏸ Pause</button>
   </div>
   <div id="filters-bar"><button id="clear-all-btn">Clear all</button></div>
@@ -241,6 +241,34 @@ const STATUS_COLORS={
   planned:'#8b5cf6', draft:'#6b7280', deprecated:'#374151', cancelled:'#ef4444'
 };
 function statusColor(s){ return STATUS_COLORS[s]||'#6b7280'; }
+
+function autoIcon(n){
+  if(n.icon) return n.icon;
+  const t=(n.title+' '+n.id).toLowerCase();
+  if(/auth|login|oauth|jwt|session|password|sign.in/.test(t)) return '\u{1F512}';
+  if(/database|postgres|mysql|mongo|redis|cache|storage/.test(t)) return '\u{1F5C4}';
+  if(/webhook|dispatch|event.track/.test(t)) return '\u{1F4E8}';
+  if(/api|gateway|endpoint|route|rest|graphql/.test(t)) return '\u{1F50C}';
+  if(/rate.limit|throttl/.test(t)) return '⏱';
+  if(/billing|payment|stripe|subscription/.test(t)) return '\u{1F4B3}';
+  if(/search|index/.test(t)) return '\u{1F50D}';
+  if(/metric|analytic|chart|dashboard/.test(t)) return '\u{1F4CA}';
+  if(/notification|email|alert/.test(t)) return '\u{1F514}';
+  if(/rbac|permission|security|audit/.test(t)) return '\u{1F6E1}';
+  if(/deploy|infra|terraform|docker|ci.cd/.test(t)) return '\u{1F680}';
+  if(/incident|response/.test(t)) return '\u{1F6A8}';
+  if(/secret|rotation|key/.test(t)) return '\u{1F511}';
+  if(/file|upload|download|s3/.test(t)) return '\u{1F4C1}';
+  if(/export|import|migration/.test(t)) return '\u{1F4E6}';
+  if(/user|profile|account|member|onboard/.test(t)) return '\u{1F464}';
+  if(/flag|experiment|rollout/.test(t)) return '\u{1F6A9}';
+  if(/queue|worker|job|background/.test(t)) return '⚙';
+  if(n.type==='wave') return '\u{1F30A}';
+  if(n.type==='initiative') return '\u{1F3AF}';
+  if(n.type==='ops') return '\u{1F4CB}';
+  if(n.type==='task') return '✅';
+  return '\u{1F4C4}';
+}
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 async function boot(){
@@ -328,6 +356,58 @@ function buildTreeLayout(){
     .alphaDecay(0.1).on('tick',ticked);
 }
 
+function buildTopDownLayout(){
+  if(simulation)simulation.stop();
+  const W=svgEl.clientWidth||800, H=svgEl.clientHeight||600;
+  const vis=nodes.filter(isVisible);
+
+  // Assign depth levels: initiatives=0, waves=1, everything else by depends_on depth
+  const levelMap=new Map();
+  vis.forEach(n=>{
+    if(n.type==='initiative') levelMap.set(n.id,0);
+    else if(n.type==='wave') levelMap.set(n.id,1);
+  });
+
+  let changed=true;
+  while(changed){
+    changed=false;
+    vis.forEach(n=>{
+      if(n.type==='initiative'||n.type==='wave') return;
+      const deps=n.depends_on.filter(d=>nodeById(d));
+      const base=n.type==='ops'?0:2;
+      const lvl=deps.length>0 ? Math.max(...deps.map(d=>levelMap.get(d)??base))+1 : base;
+      if((levelMap.get(n.id)??-1)<lvl){ levelMap.set(n.id,lvl); changed=true; }
+    });
+  }
+
+  // Group nodes by level
+  const groups=new Map();
+  vis.forEach(n=>{
+    const lvl=levelMap.get(n.id)??2;
+    if(!groups.has(lvl)) groups.set(lvl,[]);
+    groups.get(lvl).push(n);
+  });
+
+  const sortedLvls=[...groups.keys()].sort((a,b)=>a-b);
+  const vSpacing=Math.min(130,Math.max(80,(H-80)/Math.max(sortedLvls.length,1)));
+
+  sortedLvls.forEach((lvl,li)=>{
+    const grp=groups.get(lvl);
+    grp.sort((a,b)=>{
+      const na=parseInt(a.id.match(/^(\d+)/)?.[1]??'999',10);
+      const nb=parseInt(b.id.match(/^(\d+)/)?.[1]??'999',10);
+      return na-nb;
+    });
+    const hSpacing=Math.min(160,Math.max(80,(W-60)/Math.max(grp.length,1)));
+    const startX=W/2-(grp.length-1)*hSpacing/2;
+    grp.forEach((n,xi)=>{ n.fx=startX+xi*hSpacing; n.fy=50+li*vSpacing; });
+  });
+
+  simulation=d3.forceSimulation(vis)
+    .force('charge',d3.forceManyBody().strength(-30))
+    .alphaDecay(0.1).on('tick',ticked);
+}
+
 // ─── Render ───────────────────────────────────────────────────────────────────
 function render(){
   const visNodes=nodes.filter(isVisible);
@@ -353,7 +433,8 @@ function render(){
     .on('mouseleave',(e,n)=>hoverNode(n,false));
 
   enter.append('circle').attr('r',nodeRadius);
-  enter.append('text').attr('dy','1em').attr('text-anchor','middle').attr('fill','#e6edf3').attr('font-size',11);
+  enter.append('text').attr('class','node-icon').attr('text-anchor','middle').attr('dominant-baseline','central').attr('y',1);
+  enter.append('text').attr('class','node-label').attr('text-anchor','middle').attr('fill','#e6edf3').attr('font-size',11);
   // badges
   enter.append('circle').attr('class','badge-issues').attr('r',7).attr('cx',d=>nodeRadius(d)-4).attr('cy',d=>-nodeRadius(d)+4);
   enter.append('text').attr('class','badge-issues-txt').attr('text-anchor','middle').attr('dominant-baseline','central').attr('fill','#fff').attr('font-size',9);
@@ -361,7 +442,8 @@ function render(){
 
   const merged=enter.merge(nodeSel);
   merged.select('circle:first-of-type').attr('r',nodeRadius).attr('fill',n=>n.type==='ops'?'#f97316':statusColor(n.status)).attr('stroke',n=>n.type==='task'?'#94a3b8':'none').attr('stroke-dasharray',n=>n.type==='task'?'4 2':'none').attr('stroke-width',2);
-  merged.select('text').text(n=>n.title.length>18?n.title.slice(0,17)+'…':n.title).attr('y',n=>nodeRadius(n)+4);
+  merged.select('.node-icon').text(n=>autoIcon(n)).attr('font-size',n=>Math.max(11,Math.floor(nodeRadius(n)*0.78)));
+  merged.select('.node-label').text(n=>n.title.length>18?n.title.slice(0,17)+'…':n.title).attr('y',n=>nodeRadius(n)+13);
   merged.select('.badge-issues').attr('fill',n=>n.known_issues_count>0?'#ef4444':'none').attr('cx',n=>nodeRadius(n)-4).attr('cy',n=>-nodeRadius(n)+4);
   merged.select('.badge-issues-txt').text(n=>n.known_issues_count>0?n.known_issues_count:'').attr('x',n=>nodeRadius(n)-4).attr('y',n=>-nodeRadius(n)+4);
   merged.select('.badge-uncommitted').attr('fill',n=>n.git&&n.git.hasUncommittedChanges?'#f59e0b':'none').attr('cx',n=>nodeRadius(n)-4).attr('cy',n=>nodeRadius(n)-4);
@@ -704,10 +786,15 @@ document.addEventListener('keydown',e=>{
   if(e.key==='p'||e.key==='P')document.getElementById('pause-btn').click();
 });
 
+const LAYOUT_CYCLE={force:'topdown',topdown:'tree',tree:'force'};
+const LAYOUT_LABELS={force:'Layout: Force',topdown:'Layout: Top-Down',tree:'Layout: Tree'};
 document.getElementById('layout-btn').addEventListener('click',()=>{
-  layoutMode=layoutMode==='force'?'tree':'force';
-  if(layoutMode==='tree'){nodes.forEach(n=>{n.fx=null;n.fy=null;});buildTreeLayout();}
-  else{nodes.forEach(n=>{n.fx=null;n.fy=null;});buildForceLayout();}
+  layoutMode=LAYOUT_CYCLE[layoutMode]||'force';
+  document.getElementById('layout-btn').textContent=LAYOUT_LABELS[layoutMode]||layoutMode;
+  nodes.forEach(n=>{n.fx=null;n.fy=null;});
+  if(layoutMode==='tree') buildTreeLayout();
+  else if(layoutMode==='topdown') buildTopDownLayout();
+  else buildForceLayout();
   render();
 });
 
