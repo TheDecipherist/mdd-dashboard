@@ -158,6 +158,7 @@ svg#graph{width:100%;height:100%;cursor:default}
     </select>
     <button id="adv-btn">Advanced Filters <span id="adv-badge"></span></button>
     <button id="layout-btn">Layout: Force</button>
+    <button id="fit-btn">Fit</button>
     <button id="pause-btn">⏸ Pause</button>
   </div>
   <div id="filters-bar"><button id="clear-all-btn">Clear all</button></div>
@@ -242,32 +243,32 @@ const STATUS_COLORS={
 };
 function statusColor(s){ return STATUS_COLORS[s]||'#6b7280'; }
 
-function autoIcon(n){
+function iconSymbolId(n){
   if(n.icon) return n.icon;
   const t=(n.title+' '+n.id).toLowerCase();
-  if(/auth|login|oauth|jwt|session|password|sign.in/.test(t)) return '\u{1F512}';
-  if(/database|postgres|mysql|mongo|redis|cache|storage/.test(t)) return '\u{1F5C4}';
-  if(/webhook|dispatch|event.track/.test(t)) return '\u{1F4E8}';
-  if(/api|gateway|endpoint|route|rest|graphql/.test(t)) return '\u{1F50C}';
-  if(/rate.limit|throttl/.test(t)) return '⏱';
-  if(/billing|payment|stripe|subscription/.test(t)) return '\u{1F4B3}';
-  if(/search|index/.test(t)) return '\u{1F50D}';
-  if(/metric|analytic|chart|dashboard/.test(t)) return '\u{1F4CA}';
-  if(/notification|email|alert/.test(t)) return '\u{1F514}';
-  if(/rbac|permission|security|audit/.test(t)) return '\u{1F6E1}';
-  if(/deploy|infra|terraform|docker|ci.cd/.test(t)) return '\u{1F680}';
-  if(/incident|response/.test(t)) return '\u{1F6A8}';
-  if(/secret|rotation|key/.test(t)) return '\u{1F511}';
-  if(/file|upload|download|s3/.test(t)) return '\u{1F4C1}';
-  if(/export|import|migration/.test(t)) return '\u{1F4E6}';
-  if(/user|profile|account|member|onboard/.test(t)) return '\u{1F464}';
-  if(/flag|experiment|rollout/.test(t)) return '\u{1F6A9}';
-  if(/queue|worker|job|background/.test(t)) return '⚙';
-  if(n.type==='wave') return '\u{1F30A}';
-  if(n.type==='initiative') return '\u{1F3AF}';
-  if(n.type==='ops') return '\u{1F4CB}';
-  if(n.type==='task') return '✅';
-  return '\u{1F4C4}';
+  if(/auth|login|oauth|jwt|session|password/.test(t)) return 'lock';
+  if(/database|postgres|mysql|mongo|redis|cache/.test(t)) return 'database';
+  if(/webhook|dispatch|event.track/.test(t)) return 'zap';
+  if(/api|gateway|endpoint|route|rest/.test(t)) return 'globe';
+  if(/rate.limit|throttl/.test(t)) return 'timer';
+  if(/billing|payment|stripe|subscription/.test(t)) return 'credit-card';
+  if(/search|index/.test(t)) return 'search';
+  if(/metric|analytic|chart|dashboard/.test(t)) return 'bar-chart';
+  if(/notification|email|alert/.test(t)) return 'bell';
+  if(/rbac|permission|security|audit/.test(t)) return 'shield';
+  if(/deploy|infra|terraform|docker/.test(t)) return 'rocket';
+  if(/incident|response/.test(t)) return 'alert-triangle';
+  if(/secret|rotation|key/.test(t)) return 'key';
+  if(/file|upload|download|s3/.test(t)) return 'folder';
+  if(/export|import|migration/.test(t)) return 'package';
+  if(/user|profile|account|member|onboard/.test(t)) return 'user';
+  if(/flag|experiment|rollout/.test(t)) return 'flag';
+  if(/queue|worker|job|background/.test(t)) return 'settings';
+  if(n.type==='wave') return 'waves';
+  if(n.type==='initiative') return 'target';
+  if(n.type==='ops') return 'clipboard';
+  if(n.type==='task') return 'check-square';
+  return 'file';
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
@@ -278,6 +279,7 @@ async function boot(){
   initGraph();
   connectSSE();
   loadFromStorage();
+  setTimeout(()=>fitToViewport(800),900);
 }
 
 // ─── Graph init ───────────────────────────────────────────────────────────────
@@ -299,6 +301,40 @@ function initGraph(){
     path.setAttribute('fill', t==='broken'?'#ef4444':t==='depends_on'?'#4b5563':t==='initiative_wave'?'#7c3aed':'#0ea5e9');
     m.appendChild(path);
     defs.appendChild(m);
+  });
+
+  // Lucide SVG icon symbols
+  const symDefs={
+    lock:'<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    database:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/>',
+    zap:'<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
+    globe:'<circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+    timer:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    'credit-card':'<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
+    search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    'bar-chart':'<line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/>',
+    bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+    shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+    rocket:'<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
+    'alert-triangle':'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>',
+    key:'<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>',
+    folder:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+    package:'<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="M3.3 7 12 12l8.7-5"/>',
+    user:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+    settings:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+    waves:'<path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>',
+    target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+    clipboard:'<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
+    'check-square':'<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+    file:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><polyline points="14 2 14 8 20 8"/>',
+  };
+  Object.entries(symDefs).forEach(([id,paths])=>{
+    const sym=document.createElementNS('http://www.w3.org/2000/svg','symbol');
+    sym.setAttribute('id','ico-'+id);
+    sym.setAttribute('viewBox','0 0 24 24');
+    sym.innerHTML=paths;
+    defs.appendChild(sym);
   });
 
   zoom=d3.zoom().scaleExtent([0.1,4]).on('zoom',e=>{
@@ -327,8 +363,8 @@ function buildForceLayout(){
   simulation=d3.forceSimulation(visible)
     .force('link',d3.forceLink(edges.filter(e=>isVisible(nodeById(e.source))&&isVisible(nodeById(e.target))))
       .id(d=>d.id)
-      .distance(e=>e.type==='depends_on'?140:80))
-    .force('charge',d3.forceManyBody().strength(-500))
+      .distance(e=>e.type==='depends_on'?110:70))
+    .force('charge',d3.forceManyBody().strength(-350))
     .force('center',d3.forceCenter(W/2,H/2))
     .force('collide',d3.forceCollide().radius(n=>nodeRadius(n)+8))
     .alphaDecay(0.028)
@@ -433,7 +469,7 @@ function render(){
     .on('mouseleave',(e,n)=>hoverNode(n,false));
 
   enter.append('circle').attr('r',nodeRadius);
-  enter.append('text').attr('class','node-icon').attr('text-anchor','middle').attr('dominant-baseline','central').attr('y',1);
+  enter.append('use').attr('class','node-icon').attr('fill','none').attr('stroke','rgba(255,255,255,0.85)').attr('stroke-width','1.5').attr('stroke-linecap','round').attr('stroke-linejoin','round');
   enter.append('text').attr('class','node-label').attr('text-anchor','middle').attr('fill','#e6edf3').attr('font-size',11);
   // badges
   enter.append('circle').attr('class','badge-issues').attr('r',7).attr('cx',d=>nodeRadius(d)-4).attr('cy',d=>-nodeRadius(d)+4);
@@ -442,7 +478,7 @@ function render(){
 
   const merged=enter.merge(nodeSel);
   merged.select('circle:first-of-type').attr('r',nodeRadius).attr('fill',n=>n.type==='ops'?'#f97316':statusColor(n.status)).attr('stroke',n=>n.type==='task'?'#94a3b8':'none').attr('stroke-dasharray',n=>n.type==='task'?'4 2':'none').attr('stroke-width',2);
-  merged.select('.node-icon').text(n=>autoIcon(n)).attr('font-size',n=>Math.max(11,Math.floor(nodeRadius(n)*0.78)));
+  merged.select('.node-icon').attr('href',n=>'#ico-'+iconSymbolId(n)).attr('x',n=>-Math.round(nodeRadius(n)*0.38)).attr('y',n=>-Math.round(nodeRadius(n)*0.38)).attr('width',n=>Math.round(nodeRadius(n)*0.76)).attr('height',n=>Math.round(nodeRadius(n)*0.76));
   merged.select('.node-label').text(n=>n.title.length>18?n.title.slice(0,17)+'…':n.title).attr('y',n=>nodeRadius(n)+13);
   merged.select('.badge-issues').attr('fill',n=>n.known_issues_count>0?'#ef4444':'none').attr('cx',n=>nodeRadius(n)-4).attr('cy',n=>-nodeRadius(n)+4);
   merged.select('.badge-issues-txt').text(n=>n.known_issues_count>0?n.known_issues_count:'').attr('x',n=>nodeRadius(n)-4).attr('y',n=>-nodeRadius(n)+4);
@@ -515,6 +551,18 @@ function zoomToNode(n){
   const W=svgEl.clientWidth, H=svgEl.clientHeight;
   const t=d3.zoomIdentity.translate(W/2-(n.x||0),H/2-(n.y||0)).scale(1.5);
   d3.select(svgEl).transition().duration(500).call(zoom.transform,t);
+}
+
+function fitToViewport(dur=600){
+  const W=svgEl.clientWidth,H=svgEl.clientHeight;
+  const vis=nodes.filter(n=>isVisible(n)&&n.x!=null);
+  if(!vis.length)return;
+  const xs=vis.map(n=>n.x),ys=vis.map(n=>n.y);
+  const minX=Math.min(...xs)-60,maxX=Math.max(...xs)+60;
+  const minY=Math.min(...ys)-60,maxY=Math.max(...ys)+60;
+  const s=Math.min((W-40)/(maxX-minX),(H-40)/(maxY-minY),2);
+  const tx=W/2-s*(minX+maxX)/2,ty=H/2-s*(minY+maxY)/2;
+  d3.select(svgEl).transition().duration(dur).call(zoom.transform,d3.zoomIdentity.translate(tx,ty).scale(s));
 }
 
 function dragStart(e,n){ if(!e.active)simulation.alphaTarget(.3).restart(); n.fx=n.x; n.fy=n.y; }
@@ -796,7 +844,10 @@ document.getElementById('layout-btn').addEventListener('click',()=>{
   else if(layoutMode==='topdown') buildTopDownLayout();
   else buildForceLayout();
   render();
+  if(layoutMode!=='force') setTimeout(()=>fitToViewport(600),100);
 });
+
+document.getElementById('fit-btn').addEventListener('click',()=>fitToViewport(500));
 
 document.getElementById('adv-btn').addEventListener('click',()=>{
   document.getElementById('adv-panel').classList.toggle('open');
