@@ -2,7 +2,7 @@
 
 ![mdd-dashboard hero](docs/mdd-dashboard.webp)
 
-> Interactive visual browser dashboard for [MDD](https://github.com/) projects — explore your feature graph, track status, and live-reload on file change.
+> Interactive visual browser dashboard for [MDD](https://github.com/) projects - explore your feature graph, track status, and live-reload on file change.
 
 ![Node >=20](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)
 ![npm version](https://img.shields.io/npm/v/mdd-dashboard)
@@ -16,7 +16,7 @@ npm install -g mdd-dashboard
 ```bash
 cd ~/projects/my-mdd-project
 mdd-dashboard
-# MDD Dashboard running at http://localhost:7321 — press Ctrl+C to stop
+# MDD Dashboard running at http://localhost:7321 - press Ctrl+C to stop
 ```
 
 Or without installing:
@@ -37,30 +37,30 @@ npx mdd-dashboard --path ~/projects/my-mdd-project
 
 ## Dashboard features
 
-- **Force / Tree layout toggle** — switch between a D3 force simulation (organic clustering) and a strict hierarchical tree (initiative → wave → feature)
+- **Force / Tree layout toggle** - switch between a D3 force simulation (organic clustering) and a strict hierarchical tree (initiative → wave → feature)
 - **Three-tier filter system**
-  - *Toolbar*: live search (title + id), type chips (`Features | Tasks | Waves | Initiatives | Ops`), status dropdown — all instant, no server round-trip
+  - *Toolbar*: live search (title + id), type chips (`Features | Tasks | Waves | Initiatives | Ops`), status dropdown - all instant, no server round-trip
   - *Advanced panel*: 11 additional fields including edition, initiative, wave, known issues, last-synced date range, source file path, and route substring
-  - *Git filters*: author, modified-since date, changed in last N commits, uncommitted changes — appear automatically after git history loads
-- **Directional edge flow animations** — CSS keyframe animations (GPU-accelerated) show dependency direction at a glance; hover or select a node to see incoming vs. outgoing edges distinguished by direction
-- **Live reload** — file watcher pushes SSE deltas (`node-update`, `node-add`, `node-remove`, `graph-reload`) so the graph updates the moment you save a `.md` file; no page refresh needed
-- **Detail panel** — click any node to open a 340px side panel showing full markdown body, git history (last commit, commit count, `[View history]` expand), source files, and depends-on chips that navigate the graph on click
-- **Mini-map** — 160×120px overlay (bottom-right) showing all nodes scaled to fit; drag the viewport rectangle to pan the main canvas
+  - *Git filters*: author, modified-since date, changed in last N commits, uncommitted changes - appear automatically after git history loads
+- **Directional edge flow animations** - CSS keyframe animations (GPU-accelerated) show dependency direction at a glance; hover or select a node to see incoming vs. outgoing edges distinguished by direction
+- **Live reload** - file watcher pushes SSE deltas (`node-update`, `node-add`, `node-remove`, `graph-reload`) so the graph updates the moment you save a `.md` file; no page refresh needed
+- **Detail panel** - click any node to open a 340px side panel showing full markdown body, git history (last commit, commit count, `[View history]` expand), source files, and depends-on chips that navigate the graph on click
+- **Mini-map** - 160×120px overlay (bottom-right) showing all nodes scaled to fit; drag the viewport rectangle to pan the main canvas
 
-## Performance — three-tier loading
+## Performance - three-tier loading
 
 `mdd-dashboard` is designed to feel instant even on large projects (100+ docs):
 
 | Tier | When | What |
 |------|------|------|
-| **1 — Frontmatter** | Startup | All `.mdd/**/*.md` files read in parallel; only frontmatter parsed (stops at second `---`). Graph renders in <200ms. |
-| **2 — Body** | On demand | Clicking a node fetches and renders the full markdown body via `/api/doc/:id`. Result cached for the session. |
-| **3 — Git** | Async background | `git log` and `git status` run after the server starts — they don't block the browser opening. Git filters and the commit history panel appear once this completes. |
+| **1 - Frontmatter** | Startup | All `.mdd/**/*.md` files read in parallel; only frontmatter parsed (stops at second `---`). Graph renders in <200ms. |
+| **2 - Body** | On demand | Clicking a node fetches and renders the full markdown body via `/api/doc/:id`. Result cached for the session. |
+| **3 - Git** | Async background | `git log` and `git status` run after the server starts - they don't block the browser opening. Git filters and the commit history panel appear once this completes. |
 
 ## Requirements
 
 - **Node.js >= 20.0.0**
-- Any MDD project — any directory containing a `.mdd/` subdirectory with frontmatter-tagged `.md` files
+- Any MDD project - any directory containing a `.mdd/` subdirectory with frontmatter-tagged `.md` files
 
 ## Error reference
 
@@ -74,7 +74,7 @@ npx mdd-dashboard --path ~/projects/my-mdd-project
 
 ```bash
 pnpm install
-pnpm dev          # run via tsx — no build step needed
+pnpm dev          # run via tsx - no build step needed
 pnpm build        # tsc → dist/
 pnpm typecheck    # type-check without emitting
 pnpm test         # vitest (62 tests)
