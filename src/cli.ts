@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises'
 import net from 'node:net'
+import os from 'node:os'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { loadAllDocs } from './parser.js'
@@ -7,6 +8,8 @@ import { Cache } from './cache.js'
 import { createServer } from './server.js'
 import { startWatcher } from './watcher.js'
 import { loadGitData } from './git.js'
+import { detectProjectsRoot, listMddProjects, resolveDefaultIndex, showPicker } from './picker.js'
+import chalk from 'chalk'
 
 // ---------------------------------------------------------------------------
 // argv parsing
@@ -18,10 +21,18 @@ interface CliArgs {
   noOpen: boolean
   port: number | null
   projectDir: string | null
+  projectsRoot: string
 }
 
 function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { help: false, version: false, noOpen: false, port: null, projectDir: null }
+  const args: CliArgs = {
+    help: false,
+    version: false,
+    noOpen: false,
+    port: null,
+    projectDir: null,
+    projectsRoot: path.join(os.homedir(), 'projects'),
+  }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!
     if (arg === '--help' || arg === '-h') { args.help = true }
@@ -33,6 +44,9 @@ function parseArgs(argv: string[]): CliArgs {
     } else if (arg === '--path') {
       const val = argv[++i]
       if (val !== undefined) args.projectDir = val
+    } else if (arg === '--projects-root') {
+      const val = argv[++i]
+      if (val !== undefined) args.projectsRoot = path.resolve(val)
     }
   }
   return args
@@ -76,11 +90,12 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       'Usage: mdd-dashboard [options]',
       '',
       'Options:',
-      '  --path <dir>   Project directory (default: cwd)',
-      '  --port <n>     Starting port to use (default: 7321)',
-      '  --no-open      Skip opening the browser',
-      '  --version      Print version and exit',
-      '  --help         Print this message and exit',
+      '  --path <dir>           Project directory (default: cwd or picker)',
+      '  --projects-root <dir>  Root folder to list projects from (default: ~/projects)',
+      '  --port <n>             Starting port to use (default: 7321)',
+      '  --no-open              Skip opening the browser',
+      '  --version              Print version and exit',
+      '  --help                 Print this message and exit',
       '',
     ].join('\n'))
     process.exit(0)
@@ -103,7 +118,20 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       projectDir = resolved
     }
   } else {
-    projectDir = process.cwd()
+    const root = detectProjectsRoot(null, args.projectsRoot)
+    if (root !== null) {
+      const projects = await listMddProjects(root)
+      if (projects.length === 0) {
+        process.stderr.write(chalk.yellow('⚠ ') + `No MDD projects found in ${root} — using current directory\n`)
+        projectDir = process.cwd()
+      } else {
+        const defaultIndex = resolveDefaultIndex(projects, process.cwd())
+        const selected = await showPicker(projects, defaultIndex)
+        projectDir = selected ?? process.cwd()
+      }
+    } else {
+      projectDir = process.cwd()
+    }
   }
 
   const mddDir = path.join(projectDir, '.mdd')
