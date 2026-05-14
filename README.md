@@ -25,11 +25,30 @@ Or without installing:
 npx mdd-dashboard --path ~/projects/my-mdd-project
 ```
 
+## Project picker
+
+When you run `mdd-dashboard` from any direct subdirectory of `~/projects`, the CLI automatically lists all MDD projects found there and lets you pick one with arrow keys:
+
+```
+  Select a project  (↑ ↓ to move, Enter to open, Ctrl-C to exit)
+
+  ○  another-project
+  ●  mdd-dashboard
+  ○  third-project
+```
+
+- The cursor defaults to whichever project matches your current directory - just press Enter to open it
+- Only directories containing a `.mdd/` folder are shown
+- If only one MDD project exists, it opens immediately with no prompt
+- Pass `--path` to skip the picker entirely and go straight to a specific project
+- Use `--projects-root` to point at a different folder if your projects live somewhere other than `~/projects`
+
 ## CLI flags
 
 | Flag | Description | Example |
 |------|-------------|---------|
-| `--path <dir>` | Project directory to inspect (default: `cwd`) | `--path ~/projects/myapp` |
+| `--path <dir>` | Project directory to inspect — skips the picker | `--path ~/projects/myapp` |
+| `--projects-root <dir>` | Root folder to scan for MDD projects (default: `~/projects`) | `--projects-root ~/work` |
 | `--port <n>` | Starting port to try (default: 7321, scans up to 7340) | `--port 8080` |
 | `--no-open` | Skip opening a browser tab (useful in CI or remote environments) | `--no-open` |
 | `--version` | Print the installed version and exit | |
@@ -77,7 +96,7 @@ pnpm install
 pnpm dev          # run via tsx - no build step needed
 pnpm build        # tsc → dist/
 pnpm typecheck    # type-check without emitting
-pnpm test         # vitest (62 tests)
+pnpm test         # vitest (79 tests)
 ```
 
 Architecture overview: `src/cli.ts` → orchestrates startup → `src/parser.ts` (Tier 1) → `src/server.ts` (HTTP routes) → `src/cache.ts` (in-memory Maps) → `src/watcher.ts` (fs.watch debounce) → `src/git.ts` (Tier 3). See `.mdd/docs/01-mdd-dashboard-package.md` for full architecture and data model.
