@@ -1,6 +1,6 @@
 {
   "name": "mdd-dashboard",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Interactive visual browser dashboard for MDD projects",
   "type": "module",
   "bin": {
