@@ -16,6 +16,8 @@ last_synced: 2026-05-05
 status: draft
 phase: documentation
 mdd_version: 5
+tags: [doc-viewer, modal, highlight-js, markdown, vscode, sidebar, overlay, frontend]
+path: Dashboard/Doc Viewer
 known_issues: []
 ---
 

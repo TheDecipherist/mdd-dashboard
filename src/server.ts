@@ -1,9 +1,11 @@
 import http from 'node:http'
 import fs from 'node:fs/promises'
+import path from 'node:path'
 import { spawn } from 'node:child_process'
 import matter from 'gray-matter'
 import type { Cache, SseDelta } from './cache.js'
 import { getTemplate } from './template.js'
+import { parseConnections } from './connections-parser.js'
 
 // Lazy-loaded on first /api/doc/:id request — never at startup
 let _markedFn: ((src: string) => string | Promise<string>) | null = null
@@ -28,7 +30,7 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown): void
 
 export function createServer(
   cache: Cache,
-  options: { gitAvailable?: boolean } = {},
+  options: { gitAvailable?: boolean; mddDir?: string } = {},
 ): http.Server {
   return http.createServer(async (req, res) => {
     const url = req.url ?? '/'
@@ -111,6 +113,26 @@ export function createServer(
       spawn('code', [fileParam], { detached: true, stdio: 'ignore' }).unref()
       res.writeHead(204)
       res.end()
+      return
+    }
+
+    if (url === '/api/connections') {
+      if (!options.mddDir) {
+        sendJson(res, 404, { error: 'no connections.md' })
+        return
+      }
+      const connectionsPath = path.join(options.mddDir, 'connections.md')
+      try {
+        const raw = await fs.readFile(connectionsPath, 'utf-8')
+        sendJson(res, 200, parseConnections(raw))
+      } catch (err: unknown) {
+        const isNotFound = typeof err === 'object' && err !== null && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT'
+        if (isNotFound) {
+          sendJson(res, 404, { error: 'no connections.md' })
+        } else {
+          sendJson(res, 500, { error: 'parse error', message: String(err) })
+        }
+      }
       return
     }
 

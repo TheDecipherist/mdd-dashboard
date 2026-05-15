@@ -158,7 +158,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   }
 
   // Start HTTP server (gitAvailable mutated to true after Tier 3 finishes)
-  const serverOptions = { gitAvailable: false }
+  const serverOptions = { gitAvailable: false, mddDir }
   const server = createServer(cache, serverOptions)
 
   await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve))
