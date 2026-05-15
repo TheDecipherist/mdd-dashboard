@@ -16,6 +16,7 @@ status: complete
 phase: all
 mdd_version: 1.3.1
 tags: [cli, terminal, picker, readline, chalk, projects, interactive, ux, navigation]
+path: Dashboard/Project Picker
 known_issues: []
 ---
 

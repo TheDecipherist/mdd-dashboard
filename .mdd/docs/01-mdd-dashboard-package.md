@@ -30,6 +30,8 @@ last_synced: 2026-05-05
 status: complete
 phase: all
 mdd_version: 1
+tags: [cli, d3, sse, graph, frontmatter, git, nodejs, http-server]
+path: Dashboard/Core Package
 known_issues: []
 ---
 

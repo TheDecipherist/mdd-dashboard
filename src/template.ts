@@ -131,6 +131,30 @@ svg#graph{width:100%;height:100%;cursor:default}
 @keyframes flowForward{from{stroke-dashoffset:24}to{stroke-dashoffset:0}}
 @keyframes flowBackward{from{stroke-dashoffset:0}to{stroke-dashoffset:24}}
 .paused .edge{animation-play-state:paused !important}
+/* ── Connections view ────────────────────────────────────────────────── */
+#connections-wrap{display:none;flex:1;overflow:hidden;flex-direction:row}
+#tree-sidebar{width:240px;min-width:240px;overflow-y:auto;background:#0d1117;border-right:1px solid #30363d;padding:12px 0}
+#tree-sidebar h3{font-size:11px;text-transform:uppercase;color:#8b949e;letter-spacing:.08em;padding:0 12px 8px}
+.tree-area{margin-bottom:2px}
+.tree-area-label{display:flex;align-items:center;gap:6px;padding:6px 12px;color:#c9d1d9;font-size:13px;font-weight:600;cursor:pointer;border-radius:4px;user-select:none}
+.tree-area-label:hover{background:#161b22}
+.tree-children{list-style:none;padding:0 0 4px 16px;margin:0}
+.tree-children.collapsed{display:none}
+.tree-leaf{display:flex;align-items:center;gap:8px;padding:5px 8px;color:#8b949e;font-size:12px;cursor:pointer;border-radius:4px}
+.tree-leaf:hover{background:#161b22;color:#e6edf3}
+.tree-leaf.selected{background:#1f2937;color:#e6edf3}
+.tree-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+#dep-canvas{flex:1;position:relative;overflow:auto;background:#0d1117}
+.dep-card{position:absolute;width:200px;background:#161b22;border:1px solid #30363d;border-top:3px solid #6b7280;border-radius:6px;padding:10px 12px;cursor:pointer;box-sizing:border-box;transition:border-color .15s,box-shadow .15s}
+.dep-card:hover,.dep-card.selected{border-color:#58a6ff;box-shadow:0 0 0 1px #58a6ff}
+.card-top-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.card-status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.card-status-label{font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:.04em;flex:1}
+.card-overlap-badge{font-size:10px;color:#00e5cc;background:rgba(0,229,204,.1);padding:1px 5px;border-radius:3px}
+.card-doc-id{font-size:10px;color:#6b7280;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-title{font-size:13px;color:#e6edf3;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stale-badge{font-size:11px;color:#f59e0b;background:rgba(245,158,11,.1);padding:2px 7px;border-radius:4px;cursor:help}
+#no-connections-hint{font-size:11px;color:#8b949e;display:none}
 </style>
 </head>
 <body>
@@ -157,9 +181,12 @@ svg#graph{width:100%;height:100%;cursor:default}
       <option value="cancelled">Cancelled</option>
     </select>
     <button id="adv-btn">Advanced Filters <span id="adv-badge"></span></button>
+    <button id="view-btn">View: Graph</button>
     <button id="layout-btn">Layout: Force</button>
     <button id="fit-btn">Fit</button>
     <button id="pause-btn">⏸ Pause</button>
+    <span id="stale-badge" class="stale-badge" style="display:none" title="">⚠ stale</span>
+    <span id="no-connections-hint" class="no-connections-hint">💡 run /mdd status to enable Connections view</span>
   </div>
   <div id="filters-bar"><button id="clear-all-btn">Clear all</button></div>
   <div id="adv-panel">
@@ -200,6 +227,10 @@ svg#graph{width:100%;height:100%;cursor:default}
   <div id="canvas-wrap">
     <svg id="graph"><defs></defs><g id="edges-g"></g><g id="nodes-g"></g></svg>
     <svg id="minimap" width="160" height="120"></svg>
+    <div id="connections-wrap">
+      <div id="tree-sidebar"><h3>Areas</h3></div>
+      <div id="dep-canvas"></div>
+    </div>
   </div>
 </div>
 <div id="viewer-backdrop"></div>
@@ -228,6 +259,7 @@ svg#graph{width:100%;height:100%;cursor:default}
 let nodes=[], edges=[], selectedId=null, gitLoaded=false, paused=false, layoutMode='force';
 let simulation, zoom, svgEl, gEdges, gNodes;
 let clientBodyCache=new Map();
+let viewMode='graph', connectionsData=null, overlapIndex=new Map();
 
 const filters={
   search:'', types:new Set(), status:'all',
@@ -279,7 +311,20 @@ async function boot(){
   initGraph();
   connectSSE();
   loadFromStorage();
-  setTimeout(()=>fitToViewport(800),900);
+  const cr=await fetch('/api/connections').catch(()=>null);
+  if(cr&&cr.ok){
+    connectionsData=await cr.json();
+    viewMode='connections';
+    document.getElementById('view-btn').textContent='View: Connections';
+    document.getElementById('connections-wrap').style.display='flex';
+    document.getElementById('graph').style.display='none';
+    document.getElementById('minimap').style.display='none';
+    renderConnectionsView();
+  } else {
+    const hint=document.getElementById('no-connections-hint');
+    if(hint)hint.style.display='inline';
+    setTimeout(()=>fitToViewport(800),900);
+  }
 }
 
 // ─── Graph init ───────────────────────────────────────────────────────────────
@@ -764,6 +809,223 @@ function updateMinimap(){
     .attr('fill',n=>statusColor(n.status)).attr('opacity',.8);
 }
 
+// ─── Connections View ────────────────────────────────────────────────────────
+function renderConnectionsView(){
+  if(!connectionsData)return;
+  renderPathTree(connectionsData.pathTree||[]);
+  renderDepGraph(connectionsData.nodes||[],connectionsData.edges||[]);
+  indexOverlap(connectionsData.sourceOverlap||[]);
+  updateStaleness(connectionsData.generated||'');
+}
+
+function renderPathTree(tree){
+  const sidebar=document.getElementById('tree-sidebar');
+  sidebar.innerHTML='<h3>Areas</h3>';
+  if(!tree.length){
+    sidebar.innerHTML+='<div style="color:#8b949e;font-size:12px;padding:8px 12px">No area data</div>';
+    return;
+  }
+  tree.forEach(function(root){
+    const areaEl=document.createElement('div');
+    areaEl.className='tree-area';
+    const lbl=document.createElement('div');
+    lbl.className='tree-area-label';
+    lbl.textContent=(root.children&&root.children.length?'▾ ':'▸ ')+root.label;
+    areaEl.appendChild(lbl);
+    const ul=document.createElement('ul');
+    ul.className='tree-children';
+    (root.children||[]).forEach(function(leaf){
+      const li=document.createElement('li');
+      li.className='tree-leaf';
+      li.dataset.docId=leaf.id||'';
+      const dot=document.createElement('span');
+      dot.className='tree-dot';
+      dot.style.background=statusColor(leaf.status||'unknown');
+      li.appendChild(dot);
+      const span=document.createElement('span');
+      span.textContent=leaf.label;
+      li.appendChild(span);
+      li.addEventListener('click',function(){
+        document.querySelectorAll('.tree-leaf').forEach(function(l){l.classList.remove('selected');});
+        li.classList.add('selected');
+        if(leaf.id){
+          const card=document.querySelector('.dep-card[data-doc-id="'+leaf.id+'"]');
+          if(card){card.classList.add('selected');card.scrollIntoView({behavior:'smooth',block:'nearest'});}
+          openDocViewer(leaf.id);
+        }
+      });
+      ul.appendChild(li);
+    });
+    lbl.addEventListener('click',function(){ul.classList.toggle('collapsed');});
+    areaEl.appendChild(ul);
+    sidebar.appendChild(areaEl);
+  });
+}
+
+function computeCardLayout(depNodes,depEdges){
+  const outCount=new Map(depNodes.map(function(n){return [n.id,0];}));
+  const dependents=new Map(depNodes.map(function(n){return [n.id,[]];}));
+  depEdges.forEach(function(e){
+    outCount.set(e.source,(outCount.get(e.source)||0)+1);
+    if(!dependents.has(e.target))dependents.set(e.target,[]);
+    dependents.get(e.target).push(e.source);
+  });
+  const layers=new Map();
+  const queue=[];
+  depNodes.forEach(function(n){if(!outCount.get(n.id)){layers.set(n.id,0);queue.push(n.id);}});
+  let qi=0;
+  while(qi<queue.length){
+    const id=queue[qi++];
+    const layer=layers.get(id)||0;
+    (dependents.get(id)||[]).forEach(function(dep){
+      if(!layers.has(dep)||layers.get(dep)<layer+1){layers.set(dep,layer+1);queue.push(dep);}
+    });
+  }
+  depNodes.forEach(function(n){if(!layers.has(n.id))layers.set(n.id,0);});
+  return layers;
+}
+
+function renderDepGraph(depNodes,depEdges){
+  const canvas=document.getElementById('dep-canvas');
+  canvas.querySelectorAll('.dep-card').forEach(function(c){c.remove();});
+  const oldSvg=document.getElementById('dep-arrows');
+  if(oldSvg)oldSvg.remove();
+  if(!depNodes.length){
+    canvas.innerHTML='<div style="color:#8b949e;padding:40px;text-align:center">No dependency data in connections.md</div>';
+    return;
+  }
+  const CW=200,CH=80,CGAP=120,RGAP=24,PAD=40;
+  const layers=computeCardLayout(depNodes,depEdges);
+  const maxLayer=Math.max.apply(null,[...layers.values()].concat([0]));
+  const byLayer=new Map();
+  depNodes.forEach(function(n){
+    const l=layers.get(n.id)||0;
+    if(!byLayer.has(l))byLayer.set(l,[]);
+    byLayer.get(l).push(n);
+  });
+  const positions=new Map();
+  for(let l=0;l<=maxLayer;l++){
+    const col=byLayer.get(l)||[];
+    const x=PAD+(maxLayer-l)*(CW+CGAP);
+    col.forEach(function(n,i){
+      const y=PAD+i*(CH+RGAP);
+      positions.set(n.id,{x:x,y:y,cx:x+CW/2,cy:y+CH/2});
+    });
+  }
+  const totalW=(maxLayer+1)*(CW+CGAP)+PAD*2;
+  const maxRows=Math.max.apply(null,[...byLayer.values()].map(function(a){return a.length;}).concat([1]));
+  const totalH=maxRows*(CH+RGAP)+PAD*2;
+  canvas.style.minWidth=totalW+'px';
+  canvas.style.minHeight=totalH+'px';
+  const nodeMap=new Map(depNodes.map(function(n){return [n.id,n];}));
+  depNodes.forEach(function(n){
+    const pos=positions.get(n.id);
+    if(!pos)return;
+    const oc=(overlapIndex.get(n.docId)||[]).length;
+    const card=document.createElement('div');
+    card.className='dep-card';
+    card.dataset.docId=n.docId;
+    card.dataset.nodeId=n.id;
+    card.style.left=pos.x+'px';
+    card.style.top=pos.y+'px';
+    card.style.borderTopColor=statusColor(n.status);
+    card.innerHTML='<div class="card-top-row"><span class="card-status-dot" style="background:'+statusColor(n.status)+'"></span><span class="card-status-label">'+n.status+'</span>'+(oc>0?'<span class="card-overlap-badge">⚡ '+oc+'</span>':'')+'</div><div class="card-doc-id">'+n.docId+'</div><div class="card-title">'+n.label+'</div>';
+    card.addEventListener('click',function(){openDocViewer(n.docId);});
+    card.addEventListener('mouseenter',function(){showOverlapEdges(n.docId,positions,nodeMap);});
+    card.addEventListener('mouseleave',function(){hideOverlapEdges();});
+    canvas.appendChild(card);
+  });
+  drawDepArrows(depEdges,positions,totalW,totalH);
+}
+
+function drawDepArrows(depEdges,positions,w,h){
+  const ns='http://www.w3.org/2000/svg';
+  const svg=document.createElementNS(ns,'svg');
+  svg.id='dep-arrows';
+  svg.style.cssText='position:absolute;top:0;left:0;pointer-events:none;overflow:visible';
+  svg.setAttribute('width',w);svg.setAttribute('height',h);
+  const defs=document.createElementNS(ns,'defs');
+  const marker=document.createElementNS(ns,'marker');
+  marker.setAttribute('id','arrowhead');marker.setAttribute('markerWidth','8');
+  marker.setAttribute('markerHeight','6');marker.setAttribute('refX','8');
+  marker.setAttribute('refY','3');marker.setAttribute('orient','auto');
+  const poly=document.createElementNS(ns,'polygon');
+  poly.setAttribute('points','0 0,8 3,0 6');poly.setAttribute('fill','#4b5563');
+  marker.appendChild(poly);defs.appendChild(marker);svg.appendChild(defs);
+  depEdges.forEach(function(e){
+    const sp=positions.get(e.source),tp=positions.get(e.target);
+    if(!sp||!tp)return;
+    const x1=sp.x+200,y1=sp.cy,x2=tp.x,y2=tp.cy,cx=(x1+x2)/2;
+    const path=document.createElementNS(ns,'path');
+    path.setAttribute('d','M'+x1+','+y1+' C'+cx+','+y1+' '+cx+','+y2+' '+x2+','+y2);
+    path.setAttribute('stroke','#4b5563');path.setAttribute('stroke-width','1.5');
+    path.setAttribute('fill','none');path.setAttribute('marker-end','url(#arrowhead)');
+    svg.appendChild(path);
+  });
+  document.getElementById('dep-canvas').appendChild(svg);
+}
+
+function showOverlapEdges(docId,positions,nodeMap){
+  const shared=overlapIndex.get(docId)||[];
+  const thisNode=[...nodeMap.values()].find(function(n){return n.docId===docId;});
+  if(!thisNode)return;
+  const tp=positions.get(thisNode.id);
+  if(!tp)return;
+  const svg=document.getElementById('dep-arrows');
+  if(!svg)return;
+  const ns='http://www.w3.org/2000/svg';
+  shared.forEach(function(otherId){
+    const on=[...nodeMap.values()].find(function(n){return n.docId===otherId;});
+    if(!on)return;
+    const op=positions.get(on.id);
+    if(!op)return;
+    const line=document.createElementNS(ns,'line');
+    line.setAttribute('class','overlap-edge');
+    line.setAttribute('x1',tp.cx);line.setAttribute('y1',tp.cy);
+    line.setAttribute('x2',op.cx);line.setAttribute('y2',op.cy);
+    line.setAttribute('stroke','#00e5cc');line.setAttribute('stroke-width','1.5');
+    line.setAttribute('stroke-dasharray','4 4');line.setAttribute('opacity','.6');
+    svg.appendChild(line);
+  });
+}
+
+function hideOverlapEdges(){
+  const svg=document.getElementById('dep-arrows');
+  if(svg)svg.querySelectorAll('.overlap-edge').forEach(function(l){l.remove();});
+}
+
+function indexOverlap(sourceOverlap){
+  overlapIndex=new Map();
+  sourceOverlap.forEach(function(entry){
+    entry.referencedBy.forEach(function(docId){
+      const others=entry.referencedBy.filter(function(id){return id!==docId;});
+      if(!overlapIndex.has(docId))overlapIndex.set(docId,[]);
+      others.forEach(function(id){
+        if(!overlapIndex.get(docId).includes(id))overlapIndex.get(docId).push(id);
+      });
+    });
+  });
+}
+
+function updateStaleness(generated){
+  const badge=document.getElementById('stale-badge');
+  if(!badge)return;
+  if(!generated){badge.style.display='none';return;}
+  const genDate=new Date(generated),now=new Date();
+  const days=(now.getTime()-genDate.getTime())/(1000*60*60*24);
+  if(days>1){
+    badge.style.display='inline';
+    badge.title='connections.md generated '+Math.floor(days)+' day(s) ago — run /mdd status to regenerate';
+  } else {
+    badge.style.display='none';
+  }
+}
+
+function openDocViewer(docId){
+  const n=nodes.find(function(n){return n.id===docId;});
+  if(n)selectNode(n);
+}
+
 // ─── SSE ──────────────────────────────────────────────────────────────────────
 function connectSSE(){
   const dot=document.getElementById('live-dot');
@@ -787,6 +1049,8 @@ function connectSSE(){
       nodes=d.nodes.map(n=>{const p=oldPositions.get(n.id);return p?Object.assign(n,p):n;});
       edges=d.edges;
       if(msg.gitLoaded){gitLoaded=true; populateGitFilters();}
+      const cr=await fetch('/api/connections').catch(()=>null);
+      if(cr&&cr.ok){connectionsData=await cr.json();if(viewMode==='connections')renderConnectionsView();}
     }
     render(); applyFilters();
   };
@@ -832,6 +1096,25 @@ document.getElementById('pause-btn').addEventListener('click',()=>{
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape')closeViewer();
   if(e.key==='p'||e.key==='P')document.getElementById('pause-btn').click();
+});
+
+document.getElementById('view-btn').addEventListener('click',function(){
+  if(viewMode==='connections'){
+    viewMode='graph';
+    document.getElementById('view-btn').textContent='View: Graph';
+    document.getElementById('connections-wrap').style.display='none';
+    document.getElementById('graph').style.display='';
+    document.getElementById('minimap').style.display='';
+    buildForceLayout();render();setTimeout(function(){fitToViewport(600);},100);
+  } else {
+    if(!connectionsData)return;
+    viewMode='connections';
+    document.getElementById('view-btn').textContent='View: Connections';
+    document.getElementById('connections-wrap').style.display='flex';
+    document.getElementById('graph').style.display='none';
+    document.getElementById('minimap').style.display='none';
+    renderConnectionsView();
+  }
 });
 
 const LAYOUT_CYCLE={force:'topdown',topdown:'tree',tree:'force'};
